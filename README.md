@@ -6,3 +6,13 @@ This is a complete Unity project that implements raytracing using a compute shad
 # Pre-requisites
 - Developed on Unity 2019.2.0f1. May still work with earlier versions of Unity.
 - A GPU with Shader Model 5.0 support.
+
+# Benefits over traditional rendering
+- Extremely accurate lighting.
+- Nearly infinite shadow distance and precision.
+- Pixel perfect reflections.
+
+# Drawbacks
+- Very expensive to render, especially on old hardware.
+- Performance degrades with more objects/lights in the scene.
+- Everything is untextured due to the lack of UV maps.
