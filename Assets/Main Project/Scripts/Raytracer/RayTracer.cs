@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 
+[ExecuteInEditMode]
 [RequireComponent(typeof(Camera))]
 public class RayTracer : MonoBehaviour {
     private static readonly int _Buffer = Shader.PropertyToID("_Buffer");
@@ -52,24 +53,31 @@ public class RayTracer : MonoBehaviour {
     private bool refreshPointLights;
 
     private void Awake() {
+        renderers = new List<RayRenderer>();
+        pointLights = new List<RayPointLight>();
+    }
+
+    private void OnEnable() {
         if(instance != null) {
             // Instance already exists.
-            Destroy(this);
+            DestroyImmediate(this);
             return;
         }
 
         instance = this;
-        renderers = new List<RayRenderer>();
-        pointLights = new List<RayPointLight>();
         activeRendererCount = 0;
         activePointLightCount = 0;
+        refreshRenderers = (renderers.Count > 0);
+        refreshPointLights = (pointLights.Count > 0);
 
         // Camera shouldn't be rendering anything.
         cachedCamera.clearFlags = CameraClearFlags.Nothing;
         cachedCamera.cullingMask = 0;
     }
 
-    private void OnDestroy() {
+    private void OnDisable() {
+        instance = null;
+
         if(pointLightBuffer != null)
             pointLightBuffer.Dispose();
         if(sphereRenderer != null)
@@ -87,7 +95,7 @@ public class RayTracer : MonoBehaviour {
         raytracer.SetVector(_CameraPosition, cachedTrans.position);
         raytracer.SetMatrix(_CameraToWorld, cachedCamera.cameraToWorldMatrix);
         raytracer.SetMatrix(_CameraInvProjection, cachedCamera.projectionMatrix.inverse);
-        raytracer.SetInt(_MaxBounces, maxRayBounces);
+        raytracer.SetInt(_MaxBounces, Mathf.Max(0, maxRayBounces) + 1);
 
         raytracer.SetVector(_AmbientColor, ColorToVector(ambientColor, 1f));
         raytracer.SetVector(_FogParams, ColorToVector(fogColor, fogDensity));
@@ -96,61 +104,71 @@ public class RayTracer : MonoBehaviour {
 
         // Update lights.
         if(refreshPointLights) {
-            if(pointLightBuffer != null)
-                pointLightBuffer.Dispose();
-
-            List<RayPointLight.Data> lights = new List<RayPointLight.Data>();
-            bool hasEmptyGaps = (activePointLightCount < pointLights.Count);
-
-            for(int i = 0; i < pointLights.Count; i++) {
-                if(hasEmptyGaps && pointLights[i] == null)
-                    continue;
-
-                RayPointLight.Data plData = new RayPointLight.Data();
-                plData.position = pointLights[i].cachedTrans.position;
-                plData.radius = pointLights[i].cachedLight.range;
-                plData.color = ColorToVector(pointLights[i].cachedLight.color, pointLights[i].cachedLight.intensity);
-                lights.Add(plData);
-                break;
+            if(pointLightBuffer != null) {
+                pointLightBuffer.Release();
+                pointLightBuffer = null;
             }
 
-            pointLightBuffer = new ComputeBuffer(lights.Count, RayPointLight.Data.SIZE);
-            pointLightBuffer.SetData(lights);
+            if(activePointLightCount > 0) {
+                List<RayPointLight.Data> lights = new List<RayPointLight.Data>();
+                bool hasEmptyGaps = (activePointLightCount < pointLights.Count);
 
-            raytracer.SetBuffer(0, _PointLights, pointLightBuffer);
+                for(int i = 0; i < pointLights.Count; i++) {
+                    if(hasEmptyGaps && pointLights[i] == null)
+                        continue;
+
+                    RayPointLight.Data plData = new RayPointLight.Data();
+                    plData.position = pointLights[i].cachedTrans.position;
+                    plData.radius = pointLights[i].cachedLight.range;
+                    plData.color = ColorToVector(pointLights[i].cachedLight.color, pointLights[i].cachedLight.intensity);
+
+                    lights.Add(plData);
+                }
+
+                pointLightBuffer = new ComputeBuffer(lights.Count, RayPointLight.Data.SIZE);
+                pointLightBuffer.SetData(lights);
+
+                raytracer.SetBuffer(0, _PointLights, pointLightBuffer);
+            }
+
             refreshPointLights = false;
         }
 
         // Update scene renderers.
         if(refreshRenderers) {
-            if(sphereRenderer != null)
-                sphereRenderer.Dispose();
-
-            // Populate renderers.
-            List<RayRenderer.SphereData> spheres = new List<RayRenderer.SphereData>();
-            bool hasEmptyGaps = (activeRendererCount < renderers.Count);
-
-            for(int i = 0; i < renderers.Count; i++) {
-                if(hasEmptyGaps && renderers[i] == null)
-                    continue;
-
-                switch(renderers[i].type) {
-                    case RayRenderer.Type.Sphere:
-                        RayRenderer.SphereData sData = new RayRenderer.SphereData();
-                        sData.position = renderers[i].cachedTrans.position;
-                        sData.radius = renderers[i].radius;
-                        sData.albedo = ColorToVector(renderers[i].albedo, 1f);
-                        sData.specular = ColorToVector(renderers[i].specularity, 1f);
-                        spheres.Add(sData);
-                        break;
-                }
+            if(sphereRenderer != null) {
+                sphereRenderer.Release();
+                sphereRenderer = null;
             }
 
-            sphereRenderer = new ComputeBuffer(spheres.Count, RayRenderer.SphereData.SIZE);
-            sphereRenderer.SetData(spheres);
+            // Populate renderers.
+            if(activeRendererCount > 0) {
+                List<RayRenderer.SphereData> spheres = new List<RayRenderer.SphereData>();
+                bool hasEmptyGaps = (activeRendererCount < renderers.Count);
 
-            // Set buffers.
-            raytracer.SetBuffer(0, _SphereRenderers, sphereRenderer);
+                for(int i = 0; i < renderers.Count; i++) {
+                    if(hasEmptyGaps && renderers[i] == null)
+                        continue;
+
+                    switch(renderers[i].type) {
+                        case RayRenderer.Type.Sphere:
+                            RayRenderer.SphereData sData = new RayRenderer.SphereData();
+                            sData.position = renderers[i].cachedTrans.position;
+                            sData.radius = renderers[i].radius;
+                            sData.albedo = ColorToVector(renderers[i].albedo, 1f);
+                            sData.specular = ColorToVector(renderers[i].specularity, 1f);
+
+                            spheres.Add(sData);
+                            break;
+                    }
+                }
+
+                sphereRenderer = new ComputeBuffer(spheres.Count, RayRenderer.SphereData.SIZE);
+                sphereRenderer.SetData(spheres);
+
+                raytracer.SetBuffer(0, _SphereRenderers, sphereRenderer);
+            }
+
             refreshRenderers = false;
         }
 
@@ -164,7 +182,7 @@ public class RayTracer : MonoBehaviour {
 
     private void CreateRenderTexture(int w, int h) {
         if(buffer != null)
-            Destroy(buffer);
+            DestroyImmediate(buffer);
 
         buffer = new RenderTexture(w, h, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
         buffer.enableRandomWrite = true;
@@ -227,6 +245,7 @@ public class RayTracer : MonoBehaviour {
                 if(pointLights[i] == null) {
                     targetID = i;
                     pointLights[targetID] = light;
+                    Debug.Log("Replacing " + targetID);
                     break;
                 }
             }
@@ -234,6 +253,7 @@ public class RayTracer : MonoBehaviour {
         else {
             // No empty gaps, append new light to end.
             pointLights.Add(light);
+            Debug.Log("Appending " + targetID);
         }
 
         MarkLightDirty();
@@ -248,10 +268,12 @@ public class RayTracer : MonoBehaviour {
         if(lightID == pointLights.Count - 1) {
             // Removing last element.
             pointLights.RemoveAt(lightID);
+            Debug.Log("Removing " + lightID);
         }
         else {
             // Removing element in the middle.
             pointLights[lightID] = null;
+            Debug.Log("Clearing " + lightID);
         }
 
         MarkLightDirty();

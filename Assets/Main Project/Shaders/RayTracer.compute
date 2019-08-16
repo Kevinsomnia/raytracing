@@ -3,7 +3,7 @@
 
 static const float MAX_DIST = 1000000.0;
 static const float PI = 3.14159265;
-static const float E = 2.71;
+static const float E = 2.71828183;
 
 // Ray structs.
 struct Ray {

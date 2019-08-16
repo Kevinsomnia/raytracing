@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 
+[ExecuteInEditMode]
 public class RayRenderer : MonoBehaviour {
     public struct SphereData {
         public const int SIZE = 40;
@@ -20,12 +21,18 @@ public class RayRenderer : MonoBehaviour {
 
     private int rendererID;
 
+    private void Awake() {
+        rendererID = -1;
+    }
+
     private void OnEnable() {
-        rendererID = RayTracer.instance.AddRenderer(this);
+        if(RayTracer.instance != null)
+            rendererID = RayTracer.instance.AddRenderer(this);
     }
 
     private void OnDisable() {
-        RayTracer.instance.RemoveRenderer(rendererID);
+        if(rendererID > -1 && RayTracer.instance != null)
+            RayTracer.instance.RemoveRenderer(rendererID);
     }
 
     private void LateUpdate() {

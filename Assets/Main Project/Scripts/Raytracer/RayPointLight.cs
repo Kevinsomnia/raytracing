@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 
+[ExecuteInEditMode]
 public class RayPointLight : MonoBehaviour {
     public struct Data {
         public const int SIZE = 32;
@@ -16,12 +17,18 @@ public class RayPointLight : MonoBehaviour {
     private float lastIntensity;
     private int lightID;
 
+    private void Awake() {
+        lightID = -1;
+    }
+
     private void OnEnable() {
-        lightID = RayTracer.instance.AddLight(this);
+        if(RayTracer.instance != null)
+            lightID = RayTracer.instance.AddLight(this);
     }
 
     private void OnDisable() {
-        RayTracer.instance.RemoveLight(lightID);
+        if(lightID > -1 && RayTracer.instance != null)
+            RayTracer.instance.RemoveLight(lightID);
     }
 
     private void LateUpdate() {
