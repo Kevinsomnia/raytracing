@@ -134,21 +134,28 @@ void ApplyFogColor(inout float3 col, float dist) {
 	col = lerp(col, _FogParams.rgb, fogFactor);
 }
 
-void ApplyPointLight(inout float3 col, PointLight light, Ray ray) {
+void ApplyPointLight(inout float3 col, PointLight light, Ray ray, RayHit hit) {
 	// Direction from point light position to sampled position.
 	float3 lightDir = (ray.origin - light.position);
 	float lightDist = length(lightDir);
+	lightDir = normalize(lightDir);
 
 	if (lightDist < light.radius) {
-		// Within point light radius. Test for shadows by casting ray towards point light center.
-		Ray shadowRay = CreateRay(ray.origin, -lightDir);
-		RayHit shadowHit = Raytrace(shadowRay);
+		// Exclude shadow calculation for areas facing away from the light source.
+		// Will also need this value to handle light attenuation.
+		float nDotL = saturate(-dot(hit.normal, lightDir));
 
-		if (shadowHit.distance > lightDist) {
-			// This spot is NOT a shadow (ray was able to pass through light's center).
-			// Add the point light color.
-			float falloff = (light.radius - lightDist) / light.radius;
-			col += light.color.rgb * light.color.a * falloff * falloff;
+		if (nDotL > 0.0) {
+			// Within point light radius and facing light source. Test for shadows by casting ray towards point light center.
+			Ray shadowRay = CreateRay(ray.origin, -lightDir);
+			RayHit shadowHit = Raytrace(shadowRay);
+
+			if (shadowHit.distance > lightDist) {
+				// This spot is NOT a shadow (ray was able to pass through light's center).
+				// Add the point light color with attenuation and nDotL.
+				float falloff = (light.radius - lightDist) / light.radius;
+				col += light.color.rgb * light.color.a * falloff * falloff * nDotL;
+			}
 		}
 	}
 }
@@ -189,7 +196,7 @@ float3 GetRayColor(inout Ray ray, RayHit hit) {
 		_PointLights.GetDimensions(pointLightCount, pointLightStride);
 
 		for (uint i = 0; i < pointLightCount; i++) {
-			ApplyPointLight(finalColor, _PointLights[i], ray);
+			ApplyPointLight(finalColor, _PointLights[i], ray, hit);
 		}
 
 		return finalColor;
