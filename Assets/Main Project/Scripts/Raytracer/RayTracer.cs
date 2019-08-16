@@ -65,10 +65,11 @@ public class RayTracer : MonoBehaviour {
         }
 
         instance = this;
-        activeRendererCount = 0;
-        activePointLightCount = 0;
         refreshRenderers = (renderers.Count > 0);
         refreshPointLights = (pointLights.Count > 0);
+
+        // Ensure raytracer has proper parameters set up.
+        UpdateRaytracerParams();
 
         // Camera shouldn't be rendering anything.
         cachedCamera.clearFlags = CameraClearFlags.Nothing;
@@ -85,24 +86,8 @@ public class RayTracer : MonoBehaviour {
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination) {
-        int height = Mathf.Clamp(maxResolution, 1, Screen.height);
-        int width = Mathf.RoundToInt(height * cachedCamera.aspect);
-
-        if(buffer == null || buffer.width != width || buffer.height != height)
-            CreateRenderTexture(width, height);
-
         // Set compute shader parameters.
-        raytracer.SetTexture(0, _Buffer, buffer);
-        raytracer.SetTexture(0, _Skybox, skybox);
-        raytracer.SetVector(_CameraPosition, cachedTrans.position);
-        raytracer.SetMatrix(_CameraToWorld, cachedCamera.cameraToWorldMatrix);
-        raytracer.SetMatrix(_CameraInvProjection, cachedCamera.projectionMatrix.inverse);
-        raytracer.SetInt(_MaxBounces, Mathf.Max(0, maxRayBounces) + 1);
-
-        raytracer.SetVector(_AmbientColor, ColorToVector(ambientColor, 1f));
-        raytracer.SetVector(_FogParams, ColorToVector(fogColor, fogDensity));
-        raytracer.SetVector(_LightDirection, dirLightTransform.forward);
-        raytracer.SetVector(_LightColor, ColorToVector(dirLight.color, dirLight.intensity));
+        UpdateRaytracerParams();
 
         // Update lights.
         if(refreshPointLights) {
@@ -111,8 +96,9 @@ public class RayTracer : MonoBehaviour {
                 pointLightBuffer = null;
             }
 
+            List<RayPointLight.Data> lights = new List<RayPointLight.Data>();
+
             if(activePointLightCount > 0) {
-                List<RayPointLight.Data> lights = new List<RayPointLight.Data>();
                 bool hasEmptyGaps = (activePointLightCount < pointLights.Count);
 
                 for(int i = 0; i < pointLights.Count; i++) {
@@ -129,7 +115,6 @@ public class RayTracer : MonoBehaviour {
 
                 pointLightBuffer = new ComputeBuffer(lights.Count, RayPointLight.Data.SIZE);
                 pointLightBuffer.SetData(lights);
-
                 raytracer.SetBuffer(0, _PointLights, pointLightBuffer);
             }
 
@@ -143,9 +128,9 @@ public class RayTracer : MonoBehaviour {
                 sphereRenderer = null;
             }
 
-            // Populate renderers.
+            List<RayRenderer.SphereData> spheres = new List<RayRenderer.SphereData>();
+
             if(activeRendererCount > 0) {
-                List<RayRenderer.SphereData> spheres = new List<RayRenderer.SphereData>();
                 bool hasEmptyGaps = (activeRendererCount < renderers.Count);
 
                 for(int i = 0; i < renderers.Count; i++) {
@@ -167,7 +152,6 @@ public class RayTracer : MonoBehaviour {
 
                 sphereRenderer = new ComputeBuffer(spheres.Count, RayRenderer.SphereData.SIZE);
                 sphereRenderer.SetData(spheres);
-
                 raytracer.SetBuffer(0, _SphereRenderers, sphereRenderer);
             }
 
@@ -175,20 +159,50 @@ public class RayTracer : MonoBehaviour {
         }
 
         // Execute compute shader.
-        int threadsX = Mathf.CeilToInt(width / 16f);
-        int threadsY = Mathf.CeilToInt(height / 16f);
+        int threadsX = Mathf.CeilToInt(buffer.width / 16f);
+        int threadsY = Mathf.CeilToInt(buffer.height / 16f);
         raytracer.Dispatch(0, threadsX, threadsY, 1);
 
         Graphics.Blit(buffer, destination);
     }
 
-    private void CreateRenderTexture(int w, int h) {
-        if(buffer != null)
-            DestroyImmediate(buffer);
+    private void UpdateRaytracerParams() {
+        // Textures.
+        int height = Mathf.Clamp(maxResolution, 1, Screen.height);
 
-        buffer = new RenderTexture(w, h, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
-        buffer.enableRandomWrite = true;
-        buffer.Create();
+        if(height > 1 && Mathf.IsPowerOfTwo(height))
+            height++; // Weird black screen bug that happens when setting resolution to a power of 2...
+
+        int width = Mathf.CeilToInt(height * cachedCamera.aspect);
+
+        CreateRenderBufferIfNeeded(width, height);
+        raytracer.SetTexture(0, _Skybox, skybox);
+
+        // Camera.
+        raytracer.SetMatrix(_CameraToWorld, cachedCamera.cameraToWorldMatrix);
+        raytracer.SetMatrix(_CameraInvProjection, cachedCamera.projectionMatrix.inverse);
+        raytracer.SetVector(_CameraPosition, cachedTrans.position);
+        raytracer.SetInt(_MaxBounces, Mathf.Max(0, maxRayBounces) + 1);
+
+        // Environment.
+        raytracer.SetVector(_AmbientColor, ColorToVector(ambientColor, 1f));
+        raytracer.SetVector(_FogParams, ColorToVector(fogColor, fogDensity));
+        raytracer.SetVector(_LightDirection, dirLightTransform.forward);
+        raytracer.SetVector(_LightColor, ColorToVector(dirLight.color, dirLight.intensity));
+    }
+
+    private void CreateRenderBufferIfNeeded(int w, int h) {
+        if(buffer == null || buffer.width != w || buffer.height != h) {
+            if(buffer != null)
+                buffer.Release();
+
+            buffer = new RenderTexture(w, h, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
+            buffer.autoGenerateMips = false;
+            buffer.enableRandomWrite = true;
+            buffer.Create();
+        }
+
+        raytracer.SetTexture(0, _Buffer, buffer);
     }
 
     public int AddRenderer(RayRenderer renderer) {

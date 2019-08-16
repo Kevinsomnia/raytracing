@@ -1,7 +1,7 @@
 ﻿// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel Raytracer
 
-static const float MAX_DIST = 1000000.0;
+static const float MAX_DIST = 100000.0;
 static const float PI = 3.14159265;
 static const float E = 2.71828183;
 
@@ -82,7 +82,7 @@ void IntersectGroundPlane(Ray r, inout RayHit result) {
 		result.position = r.origin + (r.direction * dist);
 		result.normal = float3(0.0, 1.0, 0.0); // Facing up.
 		result.distance = dist;
-		result.albedo = float3(0.2, 0.2, 0.2);
+		result.albedo = float3(0.25, 0.25, 0.25);
 		result.specular = float3(0.05, 0.05, 0.05);
 	}
 }
@@ -154,7 +154,7 @@ void ApplyPointLight(inout float3 col, PointLight light, Ray ray, RayHit hit) {
 				// This spot is NOT a shadow (ray was able to pass through light's center).
 				// Add the point light color with attenuation and nDotL.
 				float falloff = (light.radius - lightDist) / light.radius;
-				col += light.color.rgb * light.color.a * falloff * falloff * nDotL;
+				col += hit.albedo * light.color.rgb * light.color.a * falloff * falloff * nDotL;
 			}
 		}
 	}
