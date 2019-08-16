@@ -245,7 +245,6 @@ public class RayTracer : MonoBehaviour {
                 if(pointLights[i] == null) {
                     targetID = i;
                     pointLights[targetID] = light;
-                    Debug.Log("Replacing " + targetID);
                     break;
                 }
             }
@@ -253,7 +252,6 @@ public class RayTracer : MonoBehaviour {
         else {
             // No empty gaps, append new light to end.
             pointLights.Add(light);
-            Debug.Log("Appending " + targetID);
         }
 
         MarkLightDirty();
@@ -268,12 +266,10 @@ public class RayTracer : MonoBehaviour {
         if(lightID == pointLights.Count - 1) {
             // Removing last element.
             pointLights.RemoveAt(lightID);
-            Debug.Log("Removing " + lightID);
         }
         else {
             // Removing element in the middle.
             pointLights[lightID] = null;
-            Debug.Log("Clearing " + lightID);
         }
 
         MarkLightDirty();
