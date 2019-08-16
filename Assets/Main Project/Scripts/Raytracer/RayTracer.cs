@@ -92,6 +92,8 @@ public class RayTracer : MonoBehaviour {
             CreateRenderTexture(width, height);
 
         // Set compute shader parameters.
+        raytracer.SetTexture(0, _Buffer, buffer);
+        raytracer.SetTexture(0, _Skybox, skybox);
         raytracer.SetVector(_CameraPosition, cachedTrans.position);
         raytracer.SetMatrix(_CameraToWorld, cachedCamera.cameraToWorldMatrix);
         raytracer.SetMatrix(_CameraInvProjection, cachedCamera.projectionMatrix.inverse);
@@ -173,8 +175,8 @@ public class RayTracer : MonoBehaviour {
         }
 
         // Execute compute shader.
-        int threadsX = Mathf.CeilToInt(width / 8f);
-        int threadsY = Mathf.CeilToInt(height / 8f);
+        int threadsX = Mathf.CeilToInt(width / 16f);
+        int threadsY = Mathf.CeilToInt(height / 16f);
         raytracer.Dispatch(0, threadsX, threadsY, 1);
 
         Graphics.Blit(buffer, destination);
@@ -187,9 +189,6 @@ public class RayTracer : MonoBehaviour {
         buffer = new RenderTexture(w, h, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
         buffer.enableRandomWrite = true;
         buffer.Create();
-
-        raytracer.SetTexture(0, _Buffer, buffer);
-        raytracer.SetTexture(0, _Skybox, skybox);
     }
 
     public int AddRenderer(RayRenderer renderer) {

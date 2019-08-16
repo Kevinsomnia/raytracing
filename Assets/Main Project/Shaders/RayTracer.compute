@@ -208,7 +208,7 @@ float3 GetRayColor(inout Ray ray, RayHit hit) {
 	}
 }
 
-[numthreads(8,8,1)]
+[numthreads(16,16,1)]
 void Raytracer(uint3 id : SV_DispatchThreadID) {
 	// Get texture dimensions.
 	uint w;
