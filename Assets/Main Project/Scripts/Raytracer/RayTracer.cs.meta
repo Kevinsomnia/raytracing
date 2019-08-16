@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: dfcf5a9f9ba00fa4a955c1b4ea112ede
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - cachedCamera: {instanceID: 0}
+  - raytracer: {fileID: 7200000, guid: 81dba440a12f1ef4480b38b831c36f66, type: 3}
+  executionOrder: -10
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

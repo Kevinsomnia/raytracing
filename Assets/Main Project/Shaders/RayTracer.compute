@@ -1,0 +1,233 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel Raytracer
+
+static const float MAX_DIST = 1000000.0;
+static const float PI = 3.14159265;
+static const float E = 2.71;
+
+// Ray structs.
+struct Ray {
+	float3 origin;
+	float3 direction;
+	float3 lightEnergy;
+};
+
+struct RayHit {
+	float3 position;
+	float3 normal;
+	float distance;
+	float3 albedo;
+	float3 specular;
+};
+
+// Light structs.
+struct PointLight {
+	float3 position;
+	float radius;
+	float4 color;
+};
+
+// Renderer structs.
+struct Sphere {
+	float3 position;
+	float radius;
+	float3 albedo;
+	float3 specular;
+};
+
+// Rendering.
+RWTexture2D<float4> _Buffer;
+TextureCube<float4> _Skybox;
+SamplerState sampler_Skybox;
+int _MaxBounces;
+float3 _AmbientColor;
+float4 _FogParams;
+float3 _LightDirection;
+float4 _LightColor;
+float3 _CameraPosition;
+float4x4 _CameraToWorld;
+float4x4 _CameraInvProjection;
+
+// Light instances.
+StructuredBuffer<PointLight> _PointLights;
+
+// Renderer instances.
+StructuredBuffer<Sphere> _SphereRenderers;
+
+Ray CreateRay(float3 origin, float3 direction) {
+	Ray r;
+	r.origin = origin;
+	r.direction = normalize(direction);
+	r.lightEnergy = float3(1.0, 1.0, 1.0);
+	return r;
+}
+
+Ray CreateCameraRay(float2 uv) {
+	float3 direction = mul(_CameraInvProjection, float4(uv, 0.0, 1.0)).xyz;
+	direction = mul(_CameraToWorld, float4(direction, 0.0)).xyz;
+	return CreateRay(_CameraPosition, direction);
+}
+
+RayHit CreateRayHit() {
+	RayHit hit;
+	hit.distance = MAX_DIST;
+	return hit;
+}
+
+void IntersectGroundPlane(Ray r, inout RayHit result) {
+	// Calculate distance to ground plane.
+	float dist = -r.origin.y / r.direction.y;
+
+	if (r.origin.y > 0.0 && dist > 0.0 && dist < result.distance) {
+		result.position = r.origin + (r.direction * dist);
+		result.normal = float3(0.0, 1.0, 0.0); // Facing up.
+		result.distance = dist;
+		result.albedo = float3(0.5, 0.5, 0.5);
+		result.specular = float3(0.1, 0.1, 0.1);
+	}
+}
+
+void IntersectSphere(Ray r, Sphere s, inout RayHit result) {
+	// Calculate distance to sphere surface.
+	// https://en.wikipedia.org/wiki/Line-sphere_intersection
+	float3 dir = r.origin - s.position;
+	float dirDot = -dot(r.direction, dir);
+	float rSquared = s.radius * s.radius;
+	float quadraticDist = (dirDot * dirDot) - (dot(dir, dir) - rSquared);
+	
+	if (quadraticDist < 0.0)
+		return; // No solutions exist.
+
+	// Get the closer candidate for distance.
+	quadraticDist = sqrt(quadraticDist);
+	float d1 = dirDot - quadraticDist;
+	float d2 = dirDot + quadraticDist;
+	d1 = (d1 < d2) ? d1 : d2;
+
+	if (d1 > 0.0 && d1 < result.distance) {
+		result.position = r.origin + (r.direction * d1);
+		result.normal = normalize(result.position - s.position); // Facing towards hit position from sphere center.
+		result.distance = d1;
+		result.albedo = s.albedo;
+		result.specular = s.specular;
+	}
+}
+
+RayHit Raytrace(Ray ray) {
+	RayHit result = CreateRayHit();
+	IntersectGroundPlane(ray, result);
+
+	// Render spheres.
+	uint sphereCount;
+	uint sphereStride;
+	_SphereRenderers.GetDimensions(sphereCount, sphereStride);
+
+	for (uint i = 0; i < sphereCount; i++) {
+		IntersectSphere(ray, _SphereRenderers[i], result);
+	}
+
+	return result;
+}
+
+void ApplyFogColor(inout float3 col, float dist) {
+	float fogFactor = 1.0 - pow(E, -_FogParams.w * dist);
+	col = lerp(col, _FogParams.rgb, fogFactor);
+}
+
+void ApplyPointLight(inout float3 col, PointLight light, Ray ray) {
+	// Direction from point light position to sampled position.
+	float3 lightDir = (ray.origin - light.position);
+	float lightDist = length(lightDir);
+
+	if (lightDist < light.radius) {
+		// Within point light radius. Test for shadows by casting ray towards point light center.
+		Ray shadowRay = CreateRay(ray.origin, -lightDir);
+		RayHit shadowHit = Raytrace(shadowRay);
+
+		if (shadowHit.distance > lightDist) {
+			// This spot is NOT a shadow (ray was able to pass through light's center).
+			// Add the point light color.
+			float falloff = (light.radius - lightDist) / light.radius;
+			col += light.color.rgb * light.color.a * falloff * falloff;
+		}
+	}
+}
+
+float3 GetRayColor(inout Ray ray, RayHit hit) {
+	if (hit.distance < MAX_DIST) {
+		// Reflect ray off surface normal and diminish energy.
+		ray.origin = hit.position + (hit.normal * 0.001);
+		ray.direction = reflect(ray.direction, hit.normal);
+		ray.lightEnergy *= hit.specular;
+
+		// DIRECTIONAL LIGHT.
+		// Get albedo color of surface, multiplied with nDotL and light color.
+		float3 finalColor = hit.albedo * _LightColor.rgb * _LightColor.a;
+		float nDotL = saturate(-dot(hit.normal, _LightDirection.xyz));
+
+		if (nDotL > 0.0) {
+			// Shadow test. Shoot ray towards light source(s) to determine if there's anything in between light and this point.
+			Ray shadowRay = CreateRay(ray.origin, -_LightDirection.xyz);
+			RayHit shadowHit = Raytrace(shadowRay);
+
+			if (shadowHit.distance < MAX_DIST) {
+				// Within shadow. Apply ambient light / shadow color.
+				finalColor = _AmbientColor;
+			}
+			else {
+				// nDotL falloff.
+				finalColor = lerp(_AmbientColor, finalColor, nDotL);
+			}
+		}
+		else {
+			finalColor = _AmbientColor; // Pointing away from directional light.
+		}
+
+		// POINT LIGHTS.
+		uint pointLightCount;
+		uint pointLightStride;
+		_PointLights.GetDimensions(pointLightCount, pointLightStride);
+
+		for (uint i = 0; i < pointLightCount; i++) {
+			ApplyPointLight(finalColor, _PointLights[i], ray);
+		}
+
+		return finalColor;
+	}
+	else {
+		// Ray hit nothing. Render skybox.
+		ray.lightEnergy = 0.0;
+		return _Skybox.SampleLevel(sampler_Skybox, ray.direction, 0).rgb;
+	}
+}
+
+[numthreads(8,8,1)]
+void Raytracer(uint3 id : SV_DispatchThreadID) {
+	// Get texture dimensions.
+	uint w;
+	uint h;
+	_Buffer.GetDimensions(w, h);
+
+	// Transform UV to world ray.
+	float2 uv =	((id.xy / float2(w, h)) - 0.5) * 2.0;
+	Ray camRay = CreateCameraRay(uv);
+
+	float3 finalColor = float3(0.0, 0.0, 0.0);
+	float3 finalPos = _CameraPosition;
+
+	for (int i = 0; i < _MaxBounces; i++) {
+		RayHit raytrace = Raytrace(camRay);
+		finalColor += camRay.lightEnergy * GetRayColor(camRay, raytrace);
+		finalPos = raytrace.position;
+
+		float energySum = camRay.lightEnergy.r + camRay.lightEnergy.g + camRay.lightEnergy.b;
+
+		if (energySum < 0.001)
+			break; // No energy left.
+	}
+
+	// Apply fog color with squared falloff.
+	ApplyFogColor(finalColor, distance(_CameraPosition, finalPos));
+
+	_Buffer[id.xy] = float4(finalColor, 1.0);
+}

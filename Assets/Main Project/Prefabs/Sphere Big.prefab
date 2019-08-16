@@ -1,0 +1,112 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &7930356160290210976
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 6134554004227210180, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_Name
+      value: Sphere Big
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210190, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210190, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210190, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210190, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210190, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210190, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210190, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210190, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_RootOrder
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210190, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210190, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210190, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210190, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_LocalScale.x
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210190, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_LocalScale.y
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210190, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_LocalScale.z
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210179, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: m_Material
+      value: 
+      objectReference: {fileID: 13400000, guid: c1fe92a72ed86644d97d5e3745b5417a,
+        type: 2}
+    - target: {fileID: 6134554004227210181, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: radius
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210181, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: albedo.r
+      value: 0.4009434
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210181, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: albedo.g
+      value: 0.567583
+      objectReference: {fileID: 0}
+    - target: {fileID: 6134554004227210181, guid: 4d631df451cabfa46974194a1767cd10,
+        type: 3}
+      propertyPath: albedo.b
+      value: 1
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 4d631df451cabfa46974194a1767cd10, type: 3}
