@@ -3,6 +3,7 @@ using UnityEngine.UI;
 
 public class DemoGUI : MonoBehaviour {
     public RayTracer tracer;
+    public PostProcessMaster postProcess;
 
     public GameObject controlsRoot;
     public Toggle controlsToggle;
@@ -12,14 +13,19 @@ public class DemoGUI : MonoBehaviour {
     public Text rayBounceLabel;
     public Slider fogDensitySlider;
     public Text fogDensityLabel;
+    public Toggle tonemappingToggle;
+    public Toggle vignetteToggle;
 
     private bool displaying;
 
-    private void Awake() {
+    private void Start() {
         displaying = false;
         resolutionSlider.value = tracer.maxResolution;
         rayBounceSlider.value = tracer.maxRayBounces;
         fogDensitySlider.value = tracer.fogDensity;
+        tonemappingToggle.isOn = postProcess.tonemapping;
+        vignetteToggle.isOn = postProcess.vignetting;
+
         UpdateGUI();
     }
 
@@ -46,6 +52,10 @@ public class DemoGUI : MonoBehaviour {
         controlsRoot.SetActive(displaying);
         controlsToggle.SetIsOnWithoutNotify(displaying);
 
+        float prevValue = resolutionSlider.value;
+        resolutionSlider.maxValue = Mathf.Max(resolutionSlider.minValue, tracer.cachedCamera.pixelHeight);
+        resolutionSlider.value = Mathf.Min(prevValue, resolutionSlider.maxValue);
+
         if(displaying) {
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
@@ -69,5 +79,13 @@ public class DemoGUI : MonoBehaviour {
     public void OnChangedFogDensity() {
         tracer.fogDensity = fogDensitySlider.value;
         fogDensityLabel.text = tracer.fogDensity.ToString("F4");
+    }
+
+    public void OnChangedTonemapping() {
+        postProcess.tonemapping = tonemappingToggle.isOn;
+    }
+
+    public void OnChangedVignette() {
+        postProcess.vignetting = vignetteToggle.isOn;
     }
 }
