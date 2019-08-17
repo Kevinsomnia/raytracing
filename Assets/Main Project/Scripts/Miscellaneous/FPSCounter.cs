@@ -13,7 +13,10 @@ public class FPSCounter : MonoBehaviour {
     }
 
     private void OnGUI() {
-        GUILayout.Box(fpsString);
+        GUILayout.BeginHorizontal();
+        GUILayout.Space(Screen.width - 80f);
+        GUILayout.Box(fpsString, GUILayout.Width(80f));
+        GUILayout.EndHorizontal();
     }
 
     private void Update() {

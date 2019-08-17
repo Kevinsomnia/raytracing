@@ -16,20 +16,17 @@ public class FreeCamera : MonoBehaviour {
     }
 
     private void Update() {
-        if(Input.GetMouseButtonDown(0)) {
-            Cursor.visible = false;
-            Cursor.lockState = CursorLockMode.Locked;
+        if(!Cursor.visible) {
+            Vector3 dir = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
+            dir = cachedTrans.TransformDirection(dir);
+            pos += dir * moveSpeed * Time.deltaTime;
+
+            // Only allow rotation when mouse is locked.
+            rotX += Input.GetAxisRaw("Mouse X") * rotateSpeed;
+            rotY -= Input.GetAxisRaw("Mouse Y") * rotateSpeed;
         }
 
-        Vector3 dir = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
-        dir = cachedTrans.TransformDirection(dir);
-        pos += dir * moveSpeed * Time.deltaTime;
-
-        rotX += Input.GetAxisRaw("Mouse X") * rotateSpeed;
-        rotY -= Input.GetAxisRaw("Mouse Y") * rotateSpeed;
-
         rotY = Mathf.Clamp(rotY, -90f, 90f);
-
         cachedTrans.SetPositionAndRotation(pos, Quaternion.Euler(rotY, rotX, 0f));
     }
 }

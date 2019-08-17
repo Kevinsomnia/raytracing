@@ -19,10 +19,8 @@ public class RayTracer : MonoBehaviour {
 
     public static RayTracer instance { get; private set; }
 
-    [SerializeField]
-    private Transform cachedTrans = null;
-    [SerializeField]
-    private Camera cachedCamera = null;
+    public Transform cachedTrans;
+    public Camera cachedCamera;
     [SerializeField]
     private ComputeShader raytracer = null;
     [SerializeField]
@@ -31,16 +29,11 @@ public class RayTracer : MonoBehaviour {
     private Light dirLight = null;
     [SerializeField]
     private Texture skybox = null;
-    [SerializeField]
-    private Color ambientColor = Color.black;
-    [SerializeField]
-    private Color fogColor = Color.gray;
-    [SerializeField]
-    private float fogDensity = 0.001f;
-    [SerializeField]
-    private int maxResolution = 1440;
-    [SerializeField]
-    private int maxRayBounces = 4;
+    public Color ambientColor = Color.black;
+    public Color fogColor = Color.gray;
+    public float fogDensity = 0.001f;
+    public int maxResolution = 1440;
+    public int maxRayBounces = 4;
 
     private RenderTexture buffer;
     private ComputeBuffer pointLightBuffer;
@@ -168,7 +161,7 @@ public class RayTracer : MonoBehaviour {
 
     private void UpdateRaytracerParams() {
         // Textures.
-        int height = Mathf.Clamp(maxResolution, 1, Screen.height);
+        int height = Mathf.Clamp(maxResolution, 1, cachedCamera.pixelHeight);
 
         if(height > 1 && Mathf.IsPowerOfTwo(height))
             height++; // Weird black screen bug that happens when setting resolution to a power of 2...
