@@ -7,6 +7,7 @@ public class DemoGUI : MonoBehaviour {
 
     public GameObject controlsRoot;
     public Toggle controlsToggle;
+    public Toggle hqToggle;
     public Slider resolutionSlider;
     public Text resolutionLabel;
     public Slider rayBounceSlider;
@@ -20,12 +21,15 @@ public class DemoGUI : MonoBehaviour {
 
     private void Start() {
         displaying = false;
+
+        hqToggle.isOn = tracer.highQuality;
         resolutionSlider.value = tracer.maxResolution;
         rayBounceSlider.value = tracer.maxRayBounces;
         fogDensitySlider.value = tracer.fogDensity;
         tonemappingToggle.isOn = postProcess.tonemapping;
         vignetteToggle.isOn = postProcess.vignetting;
 
+        OnChangedQuality();
         UpdateGUI();
     }
 
@@ -66,6 +70,14 @@ public class DemoGUI : MonoBehaviour {
         }
     }
 
+    public void OnChangedQuality() {
+        tracer.highQuality = hqToggle.isOn;
+        tracer.ResetAccumulation();
+
+        // Avoid smearing artifacts from moving objects by freezing time.
+        Time.timeScale = (tracer.highQuality) ? 0f : 1f;
+    }
+
     public void OnChangedResolution() {
         tracer.maxResolution = Mathf.RoundToInt(resolutionSlider.value);
         resolutionLabel.text = tracer.maxResolution.ToString();
@@ -73,11 +85,13 @@ public class DemoGUI : MonoBehaviour {
 
     public void OnChangedRayBounce() {
         tracer.maxRayBounces = Mathf.RoundToInt(rayBounceSlider.value);
+        tracer.ResetAccumulation();
         rayBounceLabel.text = tracer.maxRayBounces.ToString();
     }
 
     public void OnChangedFogDensity() {
         tracer.fogDensity = fogDensitySlider.value;
+        tracer.ResetAccumulation();
         fogDensityLabel.text = tracer.fogDensity.ToString("F4");
     }
 

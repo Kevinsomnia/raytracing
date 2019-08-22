@@ -18,6 +18,7 @@ struct RayHit {
 	float distance;
 	float3 albedo;
 	float3 specular;
+	float smoothness;
 };
 
 // Light structs.
@@ -33,6 +34,7 @@ struct Sphere {
 	float radius;
 	float3 albedo;
 	float3 specular;
+	float smoothness;
 };
 
 // Rendering.
@@ -47,6 +49,9 @@ float4 _LightColor;
 float3 _CameraPosition;
 float4x4 _CameraToWorld;
 float4x4 _CameraInvProjection;
+bool _HighQuality;
+float _NoiseTime;
+float2 _NoisePixel;
 
 // Light instances.
 StructuredBuffer<PointLight> _PointLights;
@@ -83,7 +88,8 @@ void IntersectGroundPlane(Ray r, inout RayHit result) {
 		result.normal = float3(0.0, 1.0, 0.0); // Facing up.
 		result.distance = dist;
 		result.albedo = float3(0.25, 0.25, 0.25);
-		result.specular = float3(0.05, 0.05, 0.05);
+		result.specular = float3(0.15, 0.15, 0.15);
+		result.smoothness = 0.85;
 	}
 }
 
@@ -110,6 +116,7 @@ void IntersectSphere(Ray r, Sphere s, inout RayHit result) {
 		result.distance = d1;
 		result.albedo = s.albedo;
 		result.specular = s.specular;
+		result.smoothness = s.smoothness;
 	}
 }
 
@@ -127,6 +134,42 @@ RayHit Raytrace(Ray ray) {
 	}
 
 	return result;
+}
+
+float Noise() {
+	// The infamous noise function.
+	float n = frac(sin(_NoiseTime + dot(_NoisePixel, float2(12.9898, 78.233))) * 43758.5453);
+	return n;
+}
+
+float Luminosity(float3 color) {
+	// Relative luminance.
+	return dot(color, float3(0.2126, 0.7152, 0.0722));
+}
+
+float SaturateDot(float3 a, float3 b, float factor) {
+	return saturate(dot(a, b) * factor);
+}
+
+float3x3 GetTangentSpace(float3 normal) {
+	float3 crossFwd = float3(1.0, 0.0, 0.0);
+
+	if (abs(normal.x) > 0.99) {
+		crossFwd = float3(0.0, 0.0, 1.0);
+	}
+
+	float3 tangent = normalize(cross(normal, crossFwd));
+	float3 binormal = normalize(cross(normal, tangent));
+	return float3x3(tangent, binormal, normal);
+}
+
+float3 SampleHemisphere(float3 normal, float alpha) {
+	float cosTheta = pow(Noise(), 1.0 / alpha);
+	float sinTheta = sqrt(max(0.0, 1.0 - (cosTheta * cosTheta)));
+	float phi = 2.0 * PI * Noise();
+	float3 tangentSpaceDir = float3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+
+	return mul(tangentSpaceDir, GetTangentSpace(normal));
 }
 
 void ApplyFogColor(inout float3 col, float dist) {
@@ -160,12 +203,47 @@ void ApplyPointLight(inout float3 col, PointLight light, Ray ray, RayHit hit) {
 	}
 }
 
+float SmoothnessToPhongAlpha(float smoothness) {
+	return pow(1000.0, smoothness * smoothness);
+}
+
 float3 GetRayColor(inout Ray ray, RayHit hit) {
 	if (hit.distance < MAX_DIST) {
 		// Reflect ray off surface normal and diminish energy.
 		ray.origin = hit.position + (hit.normal * 0.001);
-		ray.direction = reflect(ray.direction, hit.normal);
-		ray.lightEnergy *= hit.specular;
+		float3 rayReflection = reflect(ray.direction, hit.normal);
+
+		if (_HighQuality) {
+			// Physical shading by limiting albedo shading by specularity.
+			hit.albedo = min(1.0 - hit.specular, hit.albedo);
+
+			// Calculate distribution of rays.
+			float diffuseChance = Luminosity(hit.albedo);
+			float specularChance = Luminosity(hit.specular);
+			// Normalize both values to add to 1.0.
+			float totalChance = diffuseChance + specularChance;
+			diffuseChance /= totalChance;
+			specularChance = 1.0 - diffuseChance;
+
+			float raySelector = Noise();
+
+			if (raySelector < diffuseChance) {
+				// Diffuse reflections.
+				ray.direction = SampleHemisphere(hit.normal, 2.0);
+				ray.lightEnergy *= (2.0 * SaturateDot(ray.direction, hit.normal, 1.0) / diffuseChance) * hit.albedo;
+			}
+			else {
+				// Specular (Phong) reflections.
+				float alpha = SmoothnessToPhongAlpha(hit.smoothness);
+				ray.direction = SampleHemisphere(rayReflection, alpha);
+				float f = (alpha + 2.0) / (alpha + 1.0);
+				ray.lightEnergy *= (SaturateDot(ray.direction, hit.normal, f) / specularChance) * hit.specular;
+			}
+		}
+		else {
+			ray.direction = rayReflection;
+			ray.lightEnergy *= hit.specular;
+		}
 
 		// DIRECTIONAL LIGHT.
 		// Get albedo color of surface, multiplied with nDotL and light color.
@@ -210,6 +288,9 @@ float3 GetRayColor(inout Ray ray, RayHit hit) {
 
 [numthreads(16,16,1)]
 void Raytracer(uint3 id : SV_DispatchThreadID) {
+	// Set noise parameters.
+	_NoisePixel = id.xy;
+
 	// Get texture dimensions.
 	uint w;
 	uint h;

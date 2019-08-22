@@ -4,8 +4,13 @@ MonoImporter:
   externalObjects: {}
   serializedVersion: 2
   defaultReferences:
+  - cachedTrans: {instanceID: 0}
   - cachedCamera: {instanceID: 0}
+  - accumulateShader: {fileID: 4800000, guid: 3c12f6afedb48d74eb7f160cc93a8c38, type: 3}
   - raytracer: {fileID: 7200000, guid: 81dba440a12f1ef4480b38b831c36f66, type: 3}
+  - dirLightTransform: {instanceID: 0}
+  - dirLight: {instanceID: 0}
+  - skybox: {instanceID: 0}
   executionOrder: -10
   icon: {instanceID: 0}
   userData: 

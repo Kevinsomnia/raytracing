@@ -19,7 +19,7 @@ public class FreeCamera : MonoBehaviour {
         if(!Cursor.visible) {
             Vector3 dir = new Vector3(Input.GetAxisRaw("Horizontal"), 0f, Input.GetAxisRaw("Vertical"));
             dir = cachedTrans.TransformDirection(dir);
-            pos += dir * moveSpeed * Time.deltaTime;
+            pos += dir * moveSpeed * Time.unscaledDeltaTime;
 
             // Only allow rotation when mouse is locked.
             rotX += Input.GetAxisRaw("Mouse X") * rotateSpeed;

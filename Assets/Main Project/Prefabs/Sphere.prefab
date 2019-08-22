@@ -127,3 +127,4 @@ MonoBehaviour:
   radius: 0.5
   albedo: {r: 1, g: 0.72262794, b: 0.5518868, a: 1}
   specularity: {r: 0.3764706, g: 0.1882353, b: 0.0627451, a: 1}
+  smoothness: 0.6

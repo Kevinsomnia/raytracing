@@ -14,13 +14,18 @@ public class RayTracer : MonoBehaviour {
     private static readonly int _CameraPosition = Shader.PropertyToID("_CameraPosition");
     private static readonly int _CameraToWorld = Shader.PropertyToID("_CameraToWorld");
     private static readonly int _CameraInvProjection = Shader.PropertyToID("_CameraInvProjection");
+    private static readonly int _NoiseTime = Shader.PropertyToID("_NoiseTime");
     private static readonly int _PointLights = Shader.PropertyToID("_PointLights");
     private static readonly int _SphereRenderers = Shader.PropertyToID("_SphereRenderers");
+    private static readonly int _SampleNum = Shader.PropertyToID("_SampleNum");
+    private static readonly int _HighQuality = Shader.PropertyToID("_HighQuality");
 
     public static RayTracer instance { get; private set; }
 
     public Transform cachedTrans;
     public Camera cachedCamera;
+    [SerializeField]
+    private Shader accumulateShader = null;
     [SerializeField]
     private ComputeShader raytracer = null;
     [SerializeField]
@@ -29,13 +34,16 @@ public class RayTracer : MonoBehaviour {
     private Light dirLight = null;
     [SerializeField]
     private Texture skybox = null;
+    public bool highQuality = true;
     public Color ambientColor = Color.black;
     public Color fogColor = Color.gray;
     public float fogDensity = 0.001f;
     public int maxResolution = 1440;
-    public int maxRayBounces = 4;
+    public int maxRayBounces = 2;
 
+    private Material accumulateMat;
     private RenderTexture buffer;
+    private RenderTexture accumulateTex;
     private ComputeBuffer pointLightBuffer;
     private ComputeBuffer sphereRenderer;
     private List<RayRenderer> renderers;
@@ -44,10 +52,12 @@ public class RayTracer : MonoBehaviour {
     private int activePointLightCount;
     private bool refreshRenderers;
     private bool refreshPointLights;
+    private int sampleNum;
 
     private void Awake() {
         renderers = new List<RayRenderer>();
         pointLights = new List<RayPointLight>();
+        ResetAccumulation();
     }
 
     private void OnEnable() {
@@ -58,6 +68,11 @@ public class RayTracer : MonoBehaviour {
         }
 
         instance = this;
+
+        // Setup accumulate material for denoising.
+        accumulateMat = new Material(accumulateShader);
+        accumulateMat.hideFlags = HideFlags.HideAndDontSave;
+
         refreshRenderers = (renderers.Count > 0);
         refreshPointLights = (pointLights.Count > 0);
 
@@ -71,11 +86,19 @@ public class RayTracer : MonoBehaviour {
 
     private void OnDisable() {
         instance = null;
+        DestroyImmediate(accumulateMat);
 
         if(pointLightBuffer != null)
             pointLightBuffer.Dispose();
         if(sphereRenderer != null)
             sphereRenderer.Dispose();
+    }
+
+    private void Update() {
+        if(highQuality && cachedTrans.hasChanged) {
+            ResetAccumulation();
+            cachedTrans.hasChanged = false;
+        }
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination) {
@@ -137,6 +160,7 @@ public class RayTracer : MonoBehaviour {
                             sData.radius = renderers[i].radius;
                             sData.albedo = ColorToVector(renderers[i].albedo, 1f);
                             sData.specular = ColorToVector(renderers[i].specularity, 1f);
+                            sData.smoothness = renderers[i].smoothness;
 
                             spheres.Add(sData);
                             break;
@@ -156,7 +180,16 @@ public class RayTracer : MonoBehaviour {
         int threadsY = Mathf.CeilToInt(buffer.height / 16f);
         raytracer.Dispatch(0, threadsX, threadsY, 1);
 
-        Graphics.Blit(buffer, destination);
+        if(highQuality) {
+            accumulateMat.SetFloat(_SampleNum, sampleNum);
+
+            Graphics.Blit(buffer, accumulateTex, accumulateMat);
+            Graphics.Blit(accumulateTex, destination);
+            sampleNum++;
+        }
+        else {
+            Graphics.Blit(buffer, destination);
+        }
     }
 
     private void UpdateRaytracerParams() {
@@ -177,6 +210,10 @@ public class RayTracer : MonoBehaviour {
         raytracer.SetVector(_CameraPosition, cachedTrans.position);
         raytracer.SetInt(_MaxBounces, Mathf.Max(0, maxRayBounces) + 1);
 
+        // Other rendering.
+        raytracer.SetBool(_HighQuality, highQuality);
+        raytracer.SetFloat(_NoiseTime, (Time.unscaledTime * 1000f) % height);
+
         // Environment.
         raytracer.SetVector(_AmbientColor, ColorToVector(ambientColor, 1f));
         raytracer.SetVector(_FogParams, ColorToVector(fogColor, fogDensity));
@@ -195,7 +232,25 @@ public class RayTracer : MonoBehaviour {
             buffer.Create();
         }
 
+        if(accumulateTex == null || accumulateTex.width != w || accumulateTex.height != h) {
+            if(accumulateTex != null)
+                accumulateTex.Release();
+
+            accumulateTex = new RenderTexture(w, h, 0, RenderTextureFormat.ARGBHalf, RenderTextureReadWrite.Linear);
+            accumulateTex.autoGenerateMips = false;
+            accumulateTex.Create();
+
+            ResetAccumulation();
+        }
+
         raytracer.SetTexture(0, _Buffer, buffer);
+    }
+
+    public void ResetAccumulation() {
+        if(!highQuality)
+            return;
+
+        sampleNum = 0;
     }
 
     public int AddRenderer(RayRenderer renderer) {
