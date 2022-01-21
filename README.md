@@ -1,4 +1,4 @@
-# What's this?
+# Raytracing
 This is a complete Unity project that implements raytracing using a compute shader. Runs at about 100-150 FPS (High Quality enabled) and 200-250 FPS (High Quality disabled) on a NVIDIA GTX 1060 (3 GB) @ 1080p with the included scene.
 
 ![Raytracing](https://i.imgur.com/YsUXtui.jpg)
